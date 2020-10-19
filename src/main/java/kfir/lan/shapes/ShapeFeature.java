@@ -24,6 +24,8 @@ public abstract class ShapeFeature {
 
     public abstract ShapeFeature copy();
 
+    public abstract ShapeFeature scale(double xRation, double yRatio);
+
     protected void mutateAngle() {
         this.angle = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
     }

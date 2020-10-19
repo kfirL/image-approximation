@@ -20,9 +20,9 @@ public class FeatureFactory {
 
     public ShapeFeature generateShape() {
         if (featureType == FeatureType.Ellipse) {
-            int x = ThreadLocalRandom.current().nextInt(maxWidth / 2);
+            int x = ThreadLocalRandom.current().nextInt(maxWidth / 2) + maxWidth / 4;
             int width = ThreadLocalRandom.current().nextInt(maxWidth / 4);
-            int y = ThreadLocalRandom.current().nextInt(maxHeight / 2);
+            int y = ThreadLocalRandom.current().nextInt(maxHeight / 2) + maxHeight / 4;
             int height = ThreadLocalRandom.current().nextInt(maxHeight / 4);
             int red = ThreadLocalRandom.current().nextInt(256);
             int green = ThreadLocalRandom.current().nextInt(256);

@@ -18,6 +18,7 @@ public class SimulatedAnnealing {
     private double temperatureGeometricFactor;
     private double minEnergy;
     private final FeatureFactory featureFactory;
+    private final double maxTemp;
 
     public SimulatedAnnealing(Visualizer visualizer,
                               ImageComparator imageComparator,
@@ -29,13 +30,14 @@ public class SimulatedAnnealing {
         this.visualizer = visualizer;
         this.imageComparator = imageComparator;
         this.temperature = temperature;
+        this.maxTemp = temperature;
         this.maxWidth = maxWidth;
         this.maxHeight = maxHeight;
         this.temperatureGeometricFactor = temperatureGeometricFactor;
         this.featureFactory = featureFactory;
     }
 
-    public void start(List<ShapeFeature> state, int iteration, int maxShapes) {
+    public List<ShapeFeature> start(List<ShapeFeature> state, int iteration, int maxShapes) {
         double currentEnergy = getEnergy();
         minEnergy = currentEnergy;
         while(iteration > 0) {
@@ -81,6 +83,7 @@ public class SimulatedAnnealing {
             temperature *= temperatureGeometricFactor;
         }
         System.out.println("finished with energy: " + currentEnergy);
+        return state;
     }
 
     private double getEnergy() {
@@ -98,7 +101,7 @@ public class SimulatedAnnealing {
         if (shapesNumber == maxShapesNumber) {
             return false;
         }
-        double addShapeProbability = 0.05 * (1 -(shapesNumber / maxShapesNumber));
+        double addShapeProbability =  Math.max((temperature / maxTemp) * 0.05, 0.005) * (1 -(shapesNumber / maxShapesNumber));
         return addShapeProbability >= ThreadLocalRandom.current().nextDouble();
     }
 
@@ -106,8 +109,8 @@ public class SimulatedAnnealing {
         if (shapesNumber <= 1) {
             return false;
         }
-        double addShapeProbability = 0.05 * (shapesNumber / maxShapesNumber);
-        return addShapeProbability >= ThreadLocalRandom.current().nextDouble();
+        double removeShapeProbability = Math.max((temperature / maxTemp) * 0.05, 0.005) * (shapesNumber / maxShapesNumber);
+        return removeShapeProbability >= ThreadLocalRandom.current().nextDouble();
     }
 
 }
