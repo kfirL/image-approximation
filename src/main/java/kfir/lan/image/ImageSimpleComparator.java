@@ -5,12 +5,12 @@ import java.awt.image.BufferedImage;
 public class ImageSimpleComparator implements ImageComparator{
 
     private final PixelColor[][] pixelColors;
-    private final double maxDistance;
+    private final double normalizationFactor;
 
     public ImageSimpleComparator(BufferedImage bufferedImage) {
         pixelColors = new PixelColor[bufferedImage.getWidth()][bufferedImage.getHeight()];
         var colorModel = bufferedImage.getColorModel();
-        double sumSquaredPixelDistances = 0;
+        double sumPixelDistances = 0;
         for (int x = 0; x < bufferedImage.getWidth(); ++x) {
             for (int y = 0; y < bufferedImage.getHeight(); ++y) {
                 var dataElements = bufferedImage.getRaster().getDataElements(x, y, null);
@@ -18,17 +18,17 @@ public class ImageSimpleComparator implements ImageComparator{
                 int green = colorModel.getGreen(dataElements);
                 int blue = colorModel.getBlue(dataElements);
                 pixelColors[x][y] = new PixelColor(red, green, blue);
-                sumSquaredPixelDistances += (Math.max(256 - red, red))
+                sumPixelDistances += (Math.max(256 - red, red))
                         + (Math.max(256 - green, green))
                         + (Math.max(256 - blue, blue));
             }
         }
-        maxDistance = (sumSquaredPixelDistances);
+        normalizationFactor =  1 / sumPixelDistances;
     }
 
     public double distance(BufferedImage approx) {
         var colorModel = approx.getColorModel();
-        double sumSquaredPixelDistances = 0;
+        double sumPixelDistances = 0;
         for (int x = 0; x < approx.getWidth(); ++x) {
             for (int y = 0; y < approx.getHeight(); ++y) {
                 var dataElements = approx.getRaster().getDataElements(x, y, null);
@@ -36,12 +36,12 @@ public class ImageSimpleComparator implements ImageComparator{
                 int green = colorModel.getGreen(dataElements);
                 int blue = colorModel.getBlue(dataElements);
                 var origPixelColor = pixelColors[x][y];
-                sumSquaredPixelDistances += Math.abs(origPixelColor.red - red)
+                sumPixelDistances += Math.abs(origPixelColor.red - red)
                         + Math.abs(origPixelColor.green - green)
                         + Math.abs(origPixelColor.blue - blue);
             }
         }
-        return sumSquaredPixelDistances;
+        return sumPixelDistances * normalizationFactor;
     }
 
     private static class PixelColor {

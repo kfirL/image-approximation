@@ -1,6 +1,6 @@
 package kfir.lan;
 
-import kfir.lan.shapes.ColoredShape;
+import kfir.lan.shapes.ShapeComponent;
 import kfir.lan.shapes.EllipseFeature;
 import kfir.lan.shapes.FeatureFactory;
 import kfir.lan.shapes.ShapeFeature;
@@ -9,6 +9,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+
+import static java.awt.image.BufferedImage.TYPE_INT_ARGB;
+import static java.awt.image.BufferedImage.TYPE_INT_RGB;
 
 public class Visualizer {
 
@@ -16,11 +21,13 @@ public class Visualizer {
     private final int maxHeight;
     private final FeatureFactory.FeatureType featureType;
     private JFrame window = new JFrame();
-    private ColoredShape[] coloredShapes;
+    private List<ShapeComponent> shapeComponents;
+    private BufferedImage image;
 
     public Visualizer(int maxWidth, int maxHeight,
                       FeatureFactory.FeatureType featureType,
-                      ShapeFeature... features) {
+                      List<ShapeFeature> shapesFeatures,
+                      int maxShapes) {
         this.maxWidth = maxWidth;
         this.maxHeight = maxHeight;
         this.featureType = featureType;
@@ -29,35 +36,54 @@ public class Visualizer {
         window.getContentPane().setPreferredSize(new Dimension(maxWidth, maxHeight));
         window.pack();
         window.setLocationRelativeTo(null);
-        coloredShapes = new ColoredShape[features.length];
-        for (int i = 0; i < coloredShapes.length; ++i) {
-            coloredShapes[i] = featureToComponent(features[i]);
-            window.getContentPane().add(coloredShapes[i]);
+        shapeComponents = new ArrayList<>(maxShapes);
+        for (ShapeFeature shapesFeature : shapesFeatures) {
+            ShapeComponent shapeComponent = featureToComponent(shapesFeature);
+            shapeComponents.add(shapeComponent);
+            window.getContentPane().add(shapeComponent);
         }
+        for (int i=shapesFeatures.size(); i < maxShapes; ++i) {
+            ShapeComponent shapeComponent = new ShapeComponent();
+            shapeComponents.add(shapeComponent);
+            window.getContentPane().add(shapeComponent);
+        }
+        image = new BufferedImage(maxWidth, maxHeight, TYPE_INT_RGB);
         window.setVisible(true);
     }
 
     public BufferedImage getImage() {
-        BufferedImage img = new BufferedImage(maxWidth, maxHeight, BufferedImage.TYPE_INT_ARGB);
-        window.getContentPane().paintAll(img.createGraphics());
-        return img;
+        image.getGraphics().clearRect(0,0,maxWidth, maxHeight);
+        window.getContentPane().print(image.getGraphics());
+        return image;
     }
 
     public void updateShape(ShapeFeature shapeFeature, int index) {
         var color = getColorFromFeature(shapeFeature);
         var shape = getShapeFromFeature(shapeFeature);
         var angle = shapeFeature.getAngle();
-        var coloredShape = coloredShapes[index];
-        coloredShape.setColor(color);
-        coloredShape.setShape(shape);
-        coloredShape.setAngle(angle);
-        coloredShape.repaint();
+        var shapeComponent = shapeComponents.get(index);
+        shapeComponent.setColor(color);
+        shapeComponent.setShape(shape);
+        shapeComponent.setAngle(angle);
+        shapeComponent.repaint();
     }
 
-    private ColoredShape featureToComponent(ShapeFeature shapeFeature) {
+    public void removeShape(int index) {
+        var shapeComponent = shapeComponents.get(index);
+        shapeComponent.setShape(null);
+        shapeComponent.setColor(null);
+        shapeComponents.remove(index);
+        shapeComponents.add(shapeComponent);
+        shapeComponent.repaint();
+    }
+
+    private ShapeComponent featureToComponent(ShapeFeature shapeFeature) {
+        if (shapeFeature == null) {
+            return new ShapeComponent();
+        }
         var color = getColorFromFeature(shapeFeature);
         var shape = getShapeFromFeature(shapeFeature);
-        return new ColoredShape(shape, color, shapeFeature.getAngle());
+        return new ShapeComponent(shape, color, shapeFeature.getAngle());
     }
 
     private Shape getShapeFromFeature(ShapeFeature shapeFeature) {
