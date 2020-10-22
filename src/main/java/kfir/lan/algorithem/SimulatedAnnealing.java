@@ -1,115 +1,144 @@
 package kfir.lan.algorithem;
 
-import kfir.lan.Visualizer;
-import kfir.lan.image.ImageComparator;
+import kfir.lan.image.Visualizer;
+import kfir.lan.image.BufferedCanvas;
+import kfir.lan.heuristic.ImageComparator;
 import kfir.lan.shapes.FeatureFactory;
 import kfir.lan.shapes.ShapeFeature;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SimulatedAnnealing {
 
     private final Visualizer visualizer;
+    private final BufferedCanvas bufferedCanvas;
     private final ImageComparator imageComparator;
-    private double temperature;
     private final int maxWidth;
     private final int maxHeight;
-    private double temperatureGeometricFactor;
-    private double minEnergy;
     private final FeatureFactory featureFactory;
-    private final double maxTemp;
 
     public SimulatedAnnealing(Visualizer visualizer,
+                              BufferedCanvas bufferedCanvas,
                               ImageComparator imageComparator,
-                              double temperature,
                               int maxWidth,
                               int maxHeight,
-                              double temperatureGeometricFactor,
                               FeatureFactory featureFactory) {
         this.visualizer = visualizer;
+        this.bufferedCanvas = bufferedCanvas;
         this.imageComparator = imageComparator;
-        this.temperature = temperature;
-        this.maxTemp = temperature;
         this.maxWidth = maxWidth;
         this.maxHeight = maxHeight;
-        this.temperatureGeometricFactor = temperatureGeometricFactor;
         this.featureFactory = featureFactory;
     }
 
-    public List<ShapeFeature> start(List<ShapeFeature> state, int iteration, int maxShapes) {
+    public List<ShapeFeature> start(List<ShapeFeature> state, SimulatedAnnealingConfig config) {
+        int iteration = 0;
         double currentEnergy = getEnergy();
-        minEnergy = currentEnergy;
-        while(iteration > 0) {
-            double neighbourEnergy = Double.MAX_VALUE;
-            if (isCreateNewShape(state.size(), maxShapes)) {
+        var minEnergy = currentEnergy;
+        var bestState = new ArrayList<>(state);
+        var temperature = config.getTemperature();
+        var scheduledThreadPool = Executors.newScheduledThreadPool(1);
+        var isTimeLeft = new AtomicBoolean(true);
+        scheduledThreadPool.schedule(() -> isTimeLeft.set(false),
+                config.getRunTime().getSeconds(), TimeUnit.SECONDS);
+        while(isTimeLeft.get()) {
+            double neighbourEnergy;
+            if (isCreateNewShape(state.size(), config.getMaxShapes(),
+                    config.getMaxAddShapeProbability(), currentEnergy)) {
                 int addedIndex = state.size();
                 ShapeFeature neighbourShape = featureFactory.generateShape();
-                visualizer.updateShape(neighbourShape, addedIndex);
+                state.add(neighbourShape);
+                bufferedCanvas.paintAll(state);
                 neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy, neighbourEnergy  * 1.00005)) {
-                    state.add(neighbourShape);
+                if (isAcceptNeighbour(currentEnergy, neighbourEnergy  * config.getExtraShapePenalty(),
+                        temperature, config.getEnergyFactor())) {
+                    visualizer.showImage(bufferedCanvas.getBufferedImage());
                     currentEnergy = neighbourEnergy;
                 } else {
-                    visualizer.removeShape(addedIndex);
+                    state.remove(addedIndex);
+                    bufferedCanvas.paintAll(state);
                 }
-            } else if (isRemoveShape(state.size(), maxShapes)) {
-                int changedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
-                ShapeFeature currentShapeState = state.get(changedShapeIndex);
-                visualizer.removeShape(changedShapeIndex);
+            } else if (isRemoveShape(state.size(), config.getMaxShapes(), config.getMaxRemoveProbability(),
+                    currentEnergy)) {
+                int removedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
+                ShapeFeature removedShape = state.get(removedShapeIndex);
+                state.remove(removedShapeIndex);
+                bufferedCanvas.paintAll(state);
                 neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy  * 1.00005, neighbourEnergy)) {
-                    state.remove(changedShapeIndex);
+                if (isAcceptNeighbour(currentEnergy  * config.getExtraShapePenalty(),
+                        neighbourEnergy, temperature, config.getEnergyFactor())) {
+                    visualizer.showImage(bufferedCanvas.getBufferedImage());
                     currentEnergy = neighbourEnergy;
                 } else {
-                    visualizer.updateShape(currentShapeState, state.size() - 1);
+                    state.add(removedShapeIndex, removedShape);
+                    bufferedCanvas.paintAll(state);
                 }
             } else {
                 int changedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
                 ShapeFeature currentShapeState = state.get(changedShapeIndex);
                 ShapeFeature neighbourShape = currentShapeState.copy().mutate(maxWidth, maxHeight);
-                visualizer.updateShape(neighbourShape, changedShapeIndex);
+                state.set(changedShapeIndex, neighbourShape);
+                bufferedCanvas.paintAll(state);
                 neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy, neighbourEnergy)) {
-                    state.set(changedShapeIndex, neighbourShape);
+                if (isAcceptNeighbour(currentEnergy, neighbourEnergy, temperature, config.getEnergyFactor())) {
+                    visualizer.showImage(bufferedCanvas.getBufferedImage());
                     currentEnergy = neighbourEnergy;
                 } else {
-                    visualizer.updateShape(currentShapeState, changedShapeIndex);
+                    state.set(changedShapeIndex, currentShapeState);
+                    bufferedCanvas.paintAll(state);
                 }
             }
-
-            minEnergy = Math.min(minEnergy, currentEnergy);
-            iteration--;
-            temperature *= temperatureGeometricFactor;
+            if (currentEnergy < minEnergy) {
+                minEnergy = currentEnergy;
+                bestState = new ArrayList<>(state);
+            }
+            iteration++;
+            temperature *= config.getTemperatureGeometricFactor();
         }
-        System.out.println("finished with energy: " + currentEnergy);
-        return state;
+        System.out.println("finished with energy: " + minEnergy + " after " + iteration + " iterations");
+        scheduledThreadPool.shutdown();
+        visualizer.showImage(bufferedCanvas.getBufferedImage());
+        return bestState;
     }
 
     private double getEnergy() {
-        return imageComparator.distance(visualizer.getImage());
+        return imageComparator.distance(bufferedCanvas.getBufferedImage());
     }
 
-    private boolean isAcceptNeighbour(double oldEnergy, double newEnergy) {
+    private boolean isAcceptNeighbour(double oldEnergy, double newEnergy, double temperature, double energyFactor) {
         if (newEnergy < oldEnergy) {
             return true;
         }
-        return Math.exp(1e2*(oldEnergy - newEnergy) / temperature)  >= ThreadLocalRandom.current().nextDouble();
+        return Math.exp(energyFactor*(oldEnergy - newEnergy) / temperature)  >=
+                ThreadLocalRandom.current().nextDouble();
     }
 
-    private boolean isCreateNewShape(double shapesNumber, double maxShapesNumber) {
+    private boolean isCreateNewShape(double shapesNumber,
+                                     double maxShapesNumber,
+                                     double maxAddShapeProbability,
+                                     double energy) {
         if (shapesNumber == maxShapesNumber) {
             return false;
         }
-        double addShapeProbability =  Math.max((temperature / maxTemp) * 0.05, 0.005) * (1 -(shapesNumber / maxShapesNumber));
+        double addShapeProbability =  Math.min(energy, maxAddShapeProbability) *
+                (1 -(shapesNumber / maxShapesNumber));
         return addShapeProbability >= ThreadLocalRandom.current().nextDouble();
     }
 
-    private boolean isRemoveShape(double shapesNumber, double maxShapesNumber) {
+    private boolean isRemoveShape(double shapesNumber,
+                                  double maxShapesNumber,
+                                  double maxRemoveShapeProbability,
+                                  double energy) {
         if (shapesNumber <= 1) {
             return false;
         }
-        double removeShapeProbability = Math.max((temperature / maxTemp) * 0.05, 0.005) * (shapesNumber / maxShapesNumber);
+        double removeShapeProbability = Math.min(energy, maxRemoveShapeProbability) *
+                (shapesNumber / maxShapesNumber);
         return removeShapeProbability >= ThreadLocalRandom.current().nextDouble();
     }
 

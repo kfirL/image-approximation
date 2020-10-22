@@ -1,4 +1,4 @@
-package kfir.lan.image;
+package kfir.lan.heuristic;
 
 import java.awt.image.BufferedImage;
 
