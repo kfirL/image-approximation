@@ -6,6 +6,8 @@ import kfir.lan.heuristic.ImageComparator;
 import kfir.lan.shapes.FeatureFactory;
 import kfir.lan.shapes.ShapeFeature;
 
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -22,14 +24,13 @@ public class SimulatedAnnealing {
     private final int maxHeight;
     private final FeatureFactory featureFactory;
 
-    public SimulatedAnnealing(Visualizer visualizer,
-                              BufferedCanvas bufferedCanvas,
+    public SimulatedAnnealing(BufferedImage image,
                               ImageComparator imageComparator,
                               int maxWidth,
                               int maxHeight,
                               FeatureFactory featureFactory) {
-        this.visualizer = visualizer;
-        this.bufferedCanvas = bufferedCanvas;
+        this.visualizer = new Visualizer(image.getWidth(), image.getHeight());
+        this.bufferedCanvas = new BufferedCanvas(image.getWidth(), image.getHeight());
         this.imageComparator = imageComparator;
         this.maxWidth = maxWidth;
         this.maxHeight = maxHeight;
@@ -37,6 +38,7 @@ public class SimulatedAnnealing {
     }
 
     public List<ShapeFeature> start(List<ShapeFeature> state, SimulatedAnnealingConfig config) {
+        bufferedCanvas.paintAll(state);
         int iteration = 0;
         double currentEnergy = getEnergy();
         var minEnergy = currentEnergy;
@@ -46,7 +48,7 @@ public class SimulatedAnnealing {
         var isTimeLeft = new AtomicBoolean(true);
         scheduledThreadPool.schedule(() -> isTimeLeft.set(false),
                 config.getRunTime().getSeconds(), TimeUnit.SECONDS);
-        while(isTimeLeft.get()) {
+        while (isTimeLeft.get()) {
             double neighbourEnergy;
             if (isCreateNewShape(state.size(), config.getMaxShapes(),
                     config.getMaxAddShapeProbability(), currentEnergy)) {
@@ -55,7 +57,7 @@ public class SimulatedAnnealing {
                 state.add(neighbourShape);
                 bufferedCanvas.paintAll(state);
                 neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy, neighbourEnergy  * config.getExtraShapePenalty(),
+                if (isAcceptNeighbour(currentEnergy, neighbourEnergy * config.getExtraShapePenalty(),
                         temperature, config.getEnergyFactor())) {
                     visualizer.showImage(bufferedCanvas.getBufferedImage());
                     currentEnergy = neighbourEnergy;
@@ -70,7 +72,7 @@ public class SimulatedAnnealing {
                 state.remove(removedShapeIndex);
                 bufferedCanvas.paintAll(state);
                 neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy  * config.getExtraShapePenalty(),
+                if (isAcceptNeighbour(currentEnergy * config.getExtraShapePenalty(),
                         neighbourEnergy, temperature, config.getEnergyFactor())) {
                     visualizer.showImage(bufferedCanvas.getBufferedImage());
                     currentEnergy = neighbourEnergy;
@@ -114,7 +116,7 @@ public class SimulatedAnnealing {
         if (newEnergy < oldEnergy) {
             return true;
         }
-        return Math.exp(energyFactor*(oldEnergy - newEnergy) / temperature)  >=
+        return Math.exp(energyFactor * (oldEnergy - newEnergy) / temperature) >=
                 ThreadLocalRandom.current().nextDouble();
     }
 
@@ -125,8 +127,8 @@ public class SimulatedAnnealing {
         if (shapesNumber == maxShapesNumber) {
             return false;
         }
-        double addShapeProbability =  Math.min(energy, maxAddShapeProbability) *
-                (1 -(shapesNumber / maxShapesNumber));
+        double addShapeProbability = Math.min(energy, maxAddShapeProbability) *
+                (1 - (shapesNumber / maxShapesNumber));
         return addShapeProbability >= ThreadLocalRandom.current().nextDouble();
     }
 

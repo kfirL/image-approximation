@@ -19,13 +19,14 @@ import java.util.stream.Collectors;
 public class SimulatedAnnealingApproximator implements ImageApproximator {
 
     @Override
-    public List<ShapeFeature> approximate(BufferedImage image) {
-        BufferedImage scaledDownImage = new BufferedImage(50, 50, BufferedImage.TYPE_INT_RGB);
+    public List<ShapeFeature> approximate(BufferedImage image, FeatureFactory.FeatureType featureType) {
+        var scaledDownX = Math.min(50, image.getWidth());
+        var scaledDownY = Math.min(50, image.getHeight());
+        BufferedImage scaledDownImage = new BufferedImage(scaledDownX, scaledDownY, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = scaledDownImage.createGraphics();
-        graphics.drawImage(image.getScaledInstance(50, 50, Image.SCALE_DEFAULT), 0, 0, null);
+        graphics.drawImage(image.getScaledInstance(scaledDownX, scaledDownY, Image.SCALE_DEFAULT), 0, 0, null);
         graphics.dispose();
-        var scaledDownFeatureFactory = new FeatureFactory(FeatureFactory.FeatureType.Ellipse,
-                scaledDownImage.getWidth(), scaledDownImage.getHeight());
+        var scaledDownFeatureFactory = new FeatureFactory(featureType, scaledDownImage.getWidth(), scaledDownImage.getHeight());
         List<ShapeFeature> initialState = new ArrayList<>();
         initialState.add(scaledDownFeatureFactory.generateShape());
         var scaledDownConfig = SimulatedAnnealingConfig.builder()
@@ -33,8 +34,8 @@ public class SimulatedAnnealingApproximator implements ImageApproximator {
                 .build();
         var scaledUpApproximation = approxImage(scaledDownImage, scaledDownFeatureFactory,
                 initialState, scaledDownConfig).stream()
-                .map(shapeFeature -> shapeFeature.scale(image.getWidth() / 50.0,
-                        image.getHeight() / 50.0))
+                .map(shapeFeature -> shapeFeature.scale(image.getWidth() / ((double) scaledDownX),
+                        image.getHeight() / ((double) scaledDownY)))
                 .collect(Collectors.toList());
         var featureFactory = new FeatureFactory(FeatureFactory.FeatureType.Ellipse,
                 image.getWidth(), image.getHeight());
@@ -50,11 +51,7 @@ public class SimulatedAnnealingApproximator implements ImageApproximator {
                                            List<ShapeFeature> initialState,
                                            SimulatedAnnealingConfig config) {
         ImageComparator imageComparator = new ImageSimpleComparator(image);
-        var visualizer = new Visualizer(image.getWidth(), image.getHeight());
-        var bufferedCanvas = new BufferedCanvas(image.getWidth(), image.getHeight());
-        bufferedCanvas.paintAll(initialState);
-        SimulatedAnnealing simulatedAnnealing = new SimulatedAnnealing(visualizer,
-                bufferedCanvas,
+        SimulatedAnnealing simulatedAnnealing = new SimulatedAnnealing(image,
                 imageComparator,
                 image.getWidth(),
                 image.getHeight(),
