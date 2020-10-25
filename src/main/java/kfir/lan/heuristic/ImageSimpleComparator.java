@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 
 public class ImageSimpleComparator implements ImageComparator{
 
+    private static final int MAX_COLOR = 255;
     private final PixelColor[][] pixelColors;
     private final double normalizationFactor;
 
@@ -18,9 +19,9 @@ public class ImageSimpleComparator implements ImageComparator{
                 int green = colorModel.getGreen(dataElements);
                 int blue = colorModel.getBlue(dataElements);
                 pixelColors[x][y] = new PixelColor(red, green, blue);
-                sumPixelDistances += (Math.max(256 - red, red))
-                        + (Math.max(256 - green, green))
-                        + (Math.max(256 - blue, blue));
+                sumPixelDistances += (Math.max(MAX_COLOR - red, red))
+                        + (Math.max(MAX_COLOR - green, green))
+                        + (Math.max(MAX_COLOR - blue, blue));
             }
         }
         normalizationFactor =  1 / sumPixelDistances;

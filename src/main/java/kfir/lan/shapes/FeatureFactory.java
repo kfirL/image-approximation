@@ -4,7 +4,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class FeatureFactory {
 
-    public static enum FeatureType {
+    public static final int COLOR_BOUND = 256;
+    public static final int ALPHA_BOUND = 56;
+
+    public enum FeatureType {
         Ellipse
     }
 
@@ -24,10 +27,10 @@ public class FeatureFactory {
             int width = ThreadLocalRandom.current().nextInt(maxWidth / 4);
             int y = ThreadLocalRandom.current().nextInt(maxHeight / 2) + maxHeight / 4;
             int height = ThreadLocalRandom.current().nextInt(maxHeight / 4);
-            int red = ThreadLocalRandom.current().nextInt(256);
-            int green = ThreadLocalRandom.current().nextInt(256);
-            int blue = ThreadLocalRandom.current().nextInt(256);
-            int alpha = ThreadLocalRandom.current().nextInt(56) + 200;
+            int red = ThreadLocalRandom.current().nextInt(COLOR_BOUND);
+            int green = ThreadLocalRandom.current().nextInt(COLOR_BOUND);
+            int blue = ThreadLocalRandom.current().nextInt(COLOR_BOUND);
+            int alpha = ThreadLocalRandom.current().nextInt(ALPHA_BOUND) + COLOR_BOUND - ALPHA_BOUND;
             double angle = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
             return new EllipseFeature(red, green, blue, alpha, angle, x, y, width, height);
         }

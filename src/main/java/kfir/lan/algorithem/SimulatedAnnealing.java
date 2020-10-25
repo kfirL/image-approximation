@@ -6,7 +6,6 @@ import kfir.lan.heuristic.ImageComparator;
 import kfir.lan.shapes.FeatureFactory;
 import kfir.lan.shapes.ShapeFeature;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,51 +48,14 @@ public class SimulatedAnnealing {
         scheduledThreadPool.schedule(() -> isTimeLeft.set(false),
                 config.getRunTime().getSeconds(), TimeUnit.SECONDS);
         while (isTimeLeft.get()) {
-            double neighbourEnergy;
-            if (isCreateNewShape(state.size(), config.getMaxShapes(),
+            if (isAddNewShape(state.size(), config.getMaxShapes(),
                     config.getMaxAddShapeProbability(), currentEnergy)) {
-                int addedIndex = state.size();
-                ShapeFeature neighbourShape = featureFactory.generateShape();
-                state.add(neighbourShape);
-                bufferedCanvas.paintAll(state);
-                neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy, neighbourEnergy * config.getExtraShapePenalty(),
-                        temperature, config.getEnergyFactor())) {
-                    visualizer.showImage(bufferedCanvas.getBufferedImage());
-                    currentEnergy = neighbourEnergy;
-                } else {
-                    state.remove(addedIndex);
-                    bufferedCanvas.paintAll(state);
-                }
+                currentEnergy = tryAddingShape(state, config, currentEnergy, temperature);
             } else if (isRemoveShape(state.size(), config.getMaxShapes(), config.getMaxRemoveProbability(),
                     currentEnergy)) {
-                int removedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
-                ShapeFeature removedShape = state.get(removedShapeIndex);
-                state.remove(removedShapeIndex);
-                bufferedCanvas.paintAll(state);
-                neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy * config.getExtraShapePenalty(),
-                        neighbourEnergy, temperature, config.getEnergyFactor())) {
-                    visualizer.showImage(bufferedCanvas.getBufferedImage());
-                    currentEnergy = neighbourEnergy;
-                } else {
-                    state.add(removedShapeIndex, removedShape);
-                    bufferedCanvas.paintAll(state);
-                }
+                currentEnergy = tryRemovingShape(state, config, currentEnergy, temperature);
             } else {
-                int changedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
-                ShapeFeature currentShapeState = state.get(changedShapeIndex);
-                ShapeFeature neighbourShape = currentShapeState.copy().mutate(maxWidth, maxHeight);
-                state.set(changedShapeIndex, neighbourShape);
-                bufferedCanvas.paintAll(state);
-                neighbourEnergy = getEnergy();
-                if (isAcceptNeighbour(currentEnergy, neighbourEnergy, temperature, config.getEnergyFactor())) {
-                    visualizer.showImage(bufferedCanvas.getBufferedImage());
-                    currentEnergy = neighbourEnergy;
-                } else {
-                    state.set(changedShapeIndex, currentShapeState);
-                    bufferedCanvas.paintAll(state);
-                }
+                currentEnergy = tryChangingShape(state, config, currentEnergy, temperature);
             }
             if (currentEnergy < minEnergy) {
                 minEnergy = currentEnergy;
@@ -104,8 +66,66 @@ public class SimulatedAnnealing {
         }
         System.out.println("finished with energy: " + minEnergy + " after " + iteration + " iterations");
         scheduledThreadPool.shutdown();
+        bufferedCanvas.paintAll(bestState);
         visualizer.showImage(bufferedCanvas.getBufferedImage());
         return bestState;
+    }
+
+    private double tryChangingShape(List<ShapeFeature> state, SimulatedAnnealingConfig config, double currentEnergy, double temperature) {
+        double neighbourEnergy;
+        int changedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
+        ShapeFeature currentShapeState = state.get(changedShapeIndex);
+        ShapeFeature neighbourShape = currentShapeState.copy().mutate(maxWidth, maxHeight);
+        state.set(changedShapeIndex, neighbourShape);
+        bufferedCanvas.paintAll(state);
+        neighbourEnergy = getEnergy();
+        if (isAcceptNeighbour(currentEnergy, neighbourEnergy, temperature, config.getEnergyFactor())) {
+            visualizer.showImage(bufferedCanvas.getBufferedImage());
+            currentEnergy = neighbourEnergy;
+        } else {
+            state.set(changedShapeIndex, currentShapeState);
+            bufferedCanvas.paintAll(state);
+        }
+        return currentEnergy;
+    }
+
+    private double tryRemovingShape(List<ShapeFeature> state, SimulatedAnnealingConfig config, double currentEnergy, double temperature) {
+        double neighbourEnergy;
+        int removedShapeIndex = ThreadLocalRandom.current().nextInt(state.size());
+        ShapeFeature removedShape = state.get(removedShapeIndex);
+        state.remove(removedShapeIndex);
+        bufferedCanvas.paintAll(state);
+        neighbourEnergy = getEnergy();
+        if (isAcceptNeighbour(currentEnergy * config.getExtraShapePenalty(),
+                neighbourEnergy, temperature, config.getEnergyFactor())) {
+            visualizer.showImage(bufferedCanvas.getBufferedImage());
+            currentEnergy = neighbourEnergy;
+        } else {
+            state.add(removedShapeIndex, removedShape);
+            bufferedCanvas.paintAll(state);
+        }
+        return currentEnergy;
+    }
+
+    private double tryAddingShape(List<ShapeFeature> state,
+                                  SimulatedAnnealingConfig config,
+                                  double currentEnergy,
+                                  double temperature) {
+        double neighbourEnergy;
+        int addedIndex = state.size();
+        ShapeFeature neighbourShape = featureFactory.generateShape();
+        state.add(neighbourShape);
+        bufferedCanvas.paintAll(state);
+        neighbourEnergy = getEnergy();
+        if (isAcceptNeighbour(currentEnergy, neighbourEnergy * config.getExtraShapePenalty(),
+                temperature, config.getEnergyFactor())) {
+            visualizer.showImage(bufferedCanvas.getBufferedImage());
+            currentEnergy = neighbourEnergy;
+        } else {
+            state.remove(addedIndex);
+            bufferedCanvas.paintAll(state);
+        }
+        return currentEnergy;
     }
 
     private double getEnergy() {
@@ -120,10 +140,10 @@ public class SimulatedAnnealing {
                 ThreadLocalRandom.current().nextDouble();
     }
 
-    private boolean isCreateNewShape(double shapesNumber,
-                                     double maxShapesNumber,
-                                     double maxAddShapeProbability,
-                                     double energy) {
+    private boolean isAddNewShape(double shapesNumber,
+                                  double maxShapesNumber,
+                                  double maxAddShapeProbability,
+                                  double energy) {
         if (shapesNumber == maxShapesNumber) {
             return false;
         }
