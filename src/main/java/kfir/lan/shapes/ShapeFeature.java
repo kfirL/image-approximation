@@ -41,10 +41,16 @@ public abstract class ShapeFeature {
         colorChange = ThreadLocalRandom.current().nextBoolean() ? colorChange : -colorChange;
         int colorToChange = ThreadLocalRandom.current().nextInt(4);
         switch (colorToChange) {
-            case 0 -> red = Math.min(255, Math.max(0, colorChange + red));
-            case 1 -> green = Math.min(255, Math.max(0, colorChange + green));
-            case 2 -> blue = Math.min(255, Math.max(0, colorChange + blue));
-            default -> alpha = Math.min(255, Math.max(0, colorChange + alpha));
+            case 0:
+                red = Math.min(255, Math.max(0, colorChange + red));
+                break;
+            case 1:
+                green = Math.min(255, Math.max(0, colorChange + green));
+                break;
+            case 2:
+                blue = Math.min(255, Math.max(0, colorChange + blue));
+                break;
+            default: alpha = Math.min(255, Math.max(0, colorChange + alpha));
         }
         color = new Color(red, green, blue, alpha);
     }
